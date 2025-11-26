@@ -73,7 +73,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             
             hojaFotos.addImage(imageId, {
                 tl: { col: 1, row: 10 },  // Esquina Sup. Izq: Inicio de Celda B11
-                br: { col: 9, row: 23 },  // Esquina Inf. Der: Final de Celda J24 (aprox)
+                br: { col: 5, row: 11 },  // Esquina Inf. Der: Final de Celda J24 (aprox)
                 editAs: 'twoCell'         // CLAVE: "Estírate entre estas dos coordenadas"
             });
 
@@ -109,4 +109,5 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Servidor listo en puerto ${PORT}`);
+
 });
