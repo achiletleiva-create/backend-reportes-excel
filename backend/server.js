@@ -11,44 +11,45 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 app.use(express.json());
 
-// RUTA DE MONITOREO
+// --- RUTA DE STATUS (Para que Render sepa que estamos vivos) ---
 app.get('/', (req, res) => {
-    res.send('✅ Backend Reportes OOCC - Listo para recibir datos.');
+    res.send('✅ Servidor de Reportes OOCC - ONLINE');
 });
 
-// RUTA PRINCIPAL
+// --- RUTA PRINCIPAL: GENERAR REPORTE PILOTO ---
 app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
     try {
         console.log('--- Iniciando generación de Reporte Piloto ---');
 
         // 1. UBICAR PLANTILLA
+        // Busca en: backend/templates/template_oocc.xlsx
         const templatePath = path.join(__dirname, 'templates', 'template_oocc.xlsx');
+        
         if (!fs.existsSync(templatePath)) {
-            throw new Error(`No se encuentra la plantilla en: ${templatePath}`);
+            throw new Error(`CRÍTICO: No se encuentra la plantilla en ${templatePath}`);
         }
 
-        // 2. CARGAR EXCEL EN MEMORIA
+        // 2. CARGAR EXCEL
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.readFile(templatePath);
 
-        // 3. RECIBIR DATOS DEL FORMULARIO WEB
-        // (Estos datos son dinámicos, cambian según lo que escriba el usuario)
+        // 3. RECIBIR DATOS DEL FRONTEND
         const { 
-            nombreSite,       // Irá a E20
-            fechaInspeccion,  // Irá a F30
-            nombreInspector,  // Irá a D28
-            descripcionFoto   // Irá debajo de la foto
+            nombreSite,       // E20
+            fechaInspeccion,  // F30
+            nombreInspector,  // D28
+            descripcionFoto   // Debajo de la foto
         } = req.body;
 
-        console.log(`Datos recibidos -> Site: ${nombreSite}, Inspector: ${nombreInspector}`);
+        console.log(`Datos: Site=${nombreSite}, Insp=${nombreInspector}`);
 
         // ---------------------------------------------------------
-        // PASO A: LLENAR HOJA 1 "Insp. Estructura" (Textos)
+        // PASO A: TEXTOS EN HOJA 1 ("Insp. Estructura")
         // ---------------------------------------------------------
         const hojaDatos = workbook.getWorksheet('Insp. Estructura');
         
         if (hojaDatos) {
-            // Inyectamos los valores en las coordenadas confirmadas
+            // Coordenadas confirmadas por el usuario
             if(nombreSite)      hojaDatos.getCell('E20').value = nombreSite;
             if(nombreInspector) hojaDatos.getCell('D28').value = nombreInspector;
             if(fechaInspeccion) hojaDatos.getCell('F30').value = fechaInspeccion;
@@ -57,42 +58,39 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
         }
 
         // ---------------------------------------------------------
-        // PASO B: LLENAR HOJA 4 "Reporte Fotografico" (Imagen)
+        // PASO B: FOTO EN HOJA 4 ("Reporte Fotografico")
         // ---------------------------------------------------------
         const hojaFotos = workbook.getWorksheet('Reporte Fotografico');
 
         if (hojaFotos && req.file) {
-            // Convertir imagen
             const imageId = workbook.addImage({
                 buffer: req.file.buffer,
                 extension: 'jpeg',
             });
 
-            // COORDENADAS EXACTAS FOTO 1
-            // Inicio: B11 (Columna B=1, Fila 11=10 en índice base-0)
-            // Fin estimado: I23 (Para que tenga un tamaño decente de cuadro)
+            // COORDENADAS: Inicio B11 (Col 1, Row 10)
+            // Calculamos un tamaño para que se vea bien (aprox hasta I23)
             hojaFotos.addImage(imageId, {
                 tl: { col: 1, row: 10 }, // B11
-                br: { col: 9, row: 23 }, // I24 (Aprox, ajustaremos si queda chica/grande)
+                br: { col: 9, row: 23 }, // I24
                 editAs: 'oneCell'
             });
 
-            // Descripción de la foto (Opcional, la pondremos en B24 justo abajo)
+            // Descripción de la foto (en B24, justo debajo)
             if(descripcionFoto) {
                 hojaFotos.getCell('B24').value = descripcionFoto;
             }
         }
 
-        // 4. GENERAR Y ENVIAR ARCHIVO
-        // El nombre del archivo lleva el nombre del Site para identificarlo fácil
-        const nombreArchivo = `Reporte_${nombreSite || 'Generado'}.xlsx`;
+        // 4. GENERAR Y ENVIAR
+        const nombreArchivo = `Reporte_${nombreSite || 'OOCC'}.xlsx`;
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=${nombreArchivo}`);
 
         await workbook.xlsx.write(res);
         res.end();
-        console.log('--- Reporte enviado exitosamente ---');
+        console.log('--- ¡Reporte Enviado! ---');
 
     } catch (error) {
         console.error('❌ Error:', error);
@@ -102,5 +100,5 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor en puerto ${PORT}`);
+    console.log(`🚀 Servidor listo en puerto ${PORT}`);
 });
