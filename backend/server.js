@@ -57,7 +57,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
         }
 
 // ---------------------------------------------------------
-        // PASO B: INSERTAR FOTO (AJUSTE FINAL DE TAMAÑO)
+        // PASO B: FOTO EN HOJA 4 (MODO AUTO-AJUSTE PERFECTO)
         // ---------------------------------------------------------
         const hojaFotos = workbook.getWorksheet('Reporte Fotografico');
 
@@ -67,17 +67,17 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 extension: 'jpeg',
             });
 
-            // ESTRATEGIA: 'twoCell' (Anclaje a dos esquinas)
-            // Esto obliga a la imagen a estirarse o encogerse para entrar
-            // exactamente en el recuadro que definimos.
+            // ESTRATEGIA: 'twoCell'
+            // Esto ancla la imagen a las celdas. Si cambias el ancho de columna en Excel,
+            // la imagen se estirará con ella. Llenará el recuadro perfectamente.
             
             hojaFotos.addImage(imageId, {
-                tl: { col: 1, row: 10 },  // Esquina Sup. Izq: Celda B11
-                br: { col: 9, row: 23 },  // Esquina Inf. Der: Celda J24 (Final del cuadro)
-                editAs: 'twoCell'         // "Ajustate a estas coordenadas"
+                tl: { col: 1, row: 10 },  // Esquina Sup. Izq: Inicio de Celda B11
+                br: { col: 9, row: 23 },  // Esquina Inf. Der: Final de Celda J24 (aprox)
+                editAs: 'twoCell'         // CLAVE: "Estírate entre estas dos coordenadas"
             });
 
-            // Descripción de la foto (Celda B24)
+            // Descripción de la foto (en B24)
             if(descripcionFoto) {
                 hojaFotos.getCell('B24').value = descripcionFoto;
             }
