@@ -56,9 +56,8 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             console.warn('⚠️ No se encontró la hoja "Insp. Estructura"');
         }
 
-        // ---------------------------------------------------------
-        // PASO B: INSERTAR FOTO (Hoja "Reporte Fotografico")
-        // SOLUCIÓN ANTI-CORRUPCIÓN: Usar tamaño fijo y posición absoluta
+// ---------------------------------------------------------
+        // PASO B: INSERTAR FOTO (AJUSTE FINAL DE TAMAÑO)
         // ---------------------------------------------------------
         const hojaFotos = workbook.getWorksheet('Reporte Fotografico');
 
@@ -68,13 +67,14 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 extension: 'jpeg',
             });
 
-            // ESTRATEGIA SEGURA:
-            // En lugar de atar la imagen a un rango de celdas (que rompe el archivo),
-            // la colocamos en B11 con un tamaño fijo en píxeles.
+            // ESTRATEGIA: 'twoCell' (Anclaje a dos esquinas)
+            // Esto obliga a la imagen a estirarse o encogerse para entrar
+            // exactamente en el recuadro que definimos.
+            
             hojaFotos.addImage(imageId, {
-                tl: { col: 1, row: 10 },          // Empieza en celda B11 (Col 1, Row 10)
-                ext: { width: 400, height: 300 }, // Tamaño fijo (400x300 pixeles)
-                editAs: 'absolute'                // "No interactúes con las celdas, solo flota encima"
+                tl: { col: 1, row: 10 },  // Esquina Sup. Izq: Celda B11
+                br: { col: 9, row: 23 },  // Esquina Inf. Der: Celda J24 (Final del cuadro)
+                editAs: 'twoCell'         // "Ajustate a estas coordenadas"
             });
 
             // Descripción de la foto (Celda B24)
