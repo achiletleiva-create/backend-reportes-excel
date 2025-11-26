@@ -6,23 +6,23 @@ const fs = require('fs');
 const cors = require('cors');
 
 const app = express();
+// Configuración de Multer para guardar en memoria RAM
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
 
-// --- RUTA DE STATUS (Para que Render sepa que estamos vivos) ---
+// --- RUTA DE MONITOREO ---
 app.get('/', (req, res) => {
     res.send('✅ Servidor de Reportes OOCC - ONLINE');
 });
 
-// --- RUTA PRINCIPAL: GENERAR REPORTE PILOTO ---
+// --- RUTA PRINCIPAL: GENERAR REPORTE ---
 app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
     try {
-        console.log('--- Iniciando generación de Reporte Piloto ---');
+        console.log('--- Iniciando generación de Reporte ---');
 
-        // 1. UBICAR PLANTILLA
-        // Busca en: backend/templates/template_oocc.xlsx
+        // 1. UBICAR LA PLANTILLA
         const templatePath = path.join(__dirname, 'templates', 'template_oocc.xlsx');
         
         if (!fs.existsSync(templatePath)) {
@@ -33,23 +33,22 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.readFile(templatePath);
 
-        // 3. RECIBIR DATOS DEL FRONTEND
+        // 3. OBTENER DATOS
         const { 
             nombreSite,       // E20
             fechaInspeccion,  // F30
             nombreInspector,  // D28
-            descripcionFoto   // Debajo de la foto
+            descripcionFoto   // B24
         } = req.body;
 
-        console.log(`Datos: Site=${nombreSite}, Insp=${nombreInspector}`);
+        console.log(`Procesando: Site=${nombreSite}, Insp=${nombreInspector}`);
 
         // ---------------------------------------------------------
-        // PASO A: TEXTOS EN HOJA 1 ("Insp. Estructura")
+        // PASO A: LLENAR TEXTOS (Hoja "Insp. Estructura")
         // ---------------------------------------------------------
         const hojaDatos = workbook.getWorksheet('Insp. Estructura');
         
         if (hojaDatos) {
-            // Coordenadas confirmadas por el usuario
             if(nombreSite)      hojaDatos.getCell('E20').value = nombreSite;
             if(nombreInspector) hojaDatos.getCell('D28').value = nombreInspector;
             if(fechaInspeccion) hojaDatos.getCell('F30').value = fechaInspeccion;
@@ -58,7 +57,8 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
         }
 
         // ---------------------------------------------------------
-        // PASO B: FOTO EN HOJA 4 ("Reporte Fotografico")
+        // PASO B: INSERTAR FOTO (Hoja "Reporte Fotografico")
+        // SOLUCIÓN ANTI-CORRUPCIÓN: Usar tamaño fijo y posición absoluta
         // ---------------------------------------------------------
         const hojaFotos = workbook.getWorksheet('Reporte Fotografico');
 
@@ -68,38 +68,39 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 extension: 'jpeg',
             });
 
-            // COORDENADAS: Inicio B11 (Col 1, Row 10)
-            // Calculamos un tamaño para que se vea bien (aprox hasta I23)
+            // ESTRATEGIA SEGURA:
+            // En lugar de atar la imagen a un rango de celdas (que rompe el archivo),
+            // la colocamos en B11 con un tamaño fijo en píxeles.
             hojaFotos.addImage(imageId, {
-                tl: { col: 1, row: 10 }, // B11
-                br: { col: 9, row: 23 }, // I24
-                editAs: 'oneCell'
+                tl: { col: 1, row: 10 },          // Empieza en celda B11 (Col 1, Row 10)
+                ext: { width: 400, height: 300 }, // Tamaño fijo (400x300 pixeles)
+                editAs: 'absolute'                // "No interactúes con las celdas, solo flota encima"
             });
 
-            // Descripción de la foto (en B24, justo debajo)
+            // Descripción de la foto (Celda B24)
             if(descripcionFoto) {
                 hojaFotos.getCell('B24').value = descripcionFoto;
             }
         }
 
-       // ... (resto del código anterior igual) ...
-
-        // 4. GENERAR Y ENVIAR (BLOQUE CORREGIDO ANTI-CORRUPCIÓN)
+        // ---------------------------------------------------------
+        // PASO 4: FINALIZAR Y ENVIAR
+        // ---------------------------------------------------------
         const nombreArchivo = `Reporte_${nombreSite || 'OOCC'}.xlsx`;
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=${nombreArchivo}`);
 
-        // TRUCO 1: Forzar recalculo de propiedades al abrir
+        // Truco para asegurar que Excel recalcule todo al abrir
         workbook.calcProperties.fullCalcOnLoad = true;
 
-        // TRUCO 2: Usar writeBuffer en lugar de write(res) para mayor estabilidad
+        // Generar Buffer y enviar
         const buffer = await workbook.xlsx.writeBuffer();
         res.send(buffer);
         
-        console.log('--- ¡Reporte Enviado sin errores! ---');
+        console.log('--- ¡Reporte generado exitosamente! ---');
 
-      } catch (error) {
+    } catch (error) {
         console.error('❌ Error:', error);
         res.status(500).send('Error generando reporte: ' + error.message);
     }
