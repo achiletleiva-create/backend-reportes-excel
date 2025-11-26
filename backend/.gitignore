@@ -1,0 +1,16 @@
+node_modules/
+.env
+uploads/
+reports/
+*.log
+.DS_Store
+database.db
+database.db-journal
+node_modules/
+.env
+database.db
+uploads/
+reports/
+.DS_Store
+
+

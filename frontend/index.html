@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generador de Reportes Excel</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Generador de Reportes Excel</h1>
+      <p>App web básica conectada al backend Node.js</p>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>1. Crear reporte y subir foto</h2>
+        <form id="reporte-form">
+          <div class="form-grid">
+            <label>
+              Nombre del reporte
+              <input type="text" name="nombreReporte" placeholder="Reporte de inspección" required />
+            </label>
+
+            <label>
+              Fecha
+              <input type="date" name="fecha" required />
+            </label>
+
+            <label>
+              Descripción
+              <textarea name="descripcion" rows="3" placeholder="Detalle del reporte" required></textarea>
+            </label>
+
+            <label>
+              Celda para el título (ej: A1)
+              <input type="text" name="celdaTitulo" value="A1" required />
+            </label>
+
+            <label>
+              Celda para la descripción (ej: A2)
+              <input type="text" name="celdaDescripcion" value="A2" required />
+            </label>
+
+            <label>
+              Celda para la foto (ej: C4)
+              <input type="text" name="celdaFoto" value="C4" required />
+            </label>
+
+            <label>
+              Imagen / Foto
+              <input type="file" name="foto1" accept="image/*" required />
+            </label>
+          </div>
+
+          <button type="submit" class="primary">Generar Reporte</button>
+        </form>
+
+        <div id="form-status" class="status"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>2. Reportes generados</h2>
+          <button id="refresh-reportes" class="secondary">Actualizar lista</button>
+        </div>
+        <div id="reportes-status" class="status"></div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Estado</th>
+                <th>Archivo</th>
+                <th>Creado</th>
+              </tr>
+            </thead>
+            <tbody id="reportes-body">
+              <tr>
+                <td colspan="5" class="text-center">Sin datos todavía</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <small>
+        Backend: <code>http://localhost:3000</code> (puedes cambiarlo en <code>app.js</code>)
+      </small>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
+
+
+
