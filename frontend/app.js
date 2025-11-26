@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:3000';
+// const API_BASE_URL = 'http://localhost:3000';  <-- Esta ya no
+const API_BASE_URL = 'https://backend-reportes-excel.onrender.com';
 
 const $ = (selector) => document.querySelector(selector);
 
