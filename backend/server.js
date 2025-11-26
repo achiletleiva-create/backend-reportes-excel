@@ -73,7 +73,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             
             hojaFotos.addImage(imageId, {
                 tl: { col: 1, row: 10 },  // Esquina Sup. Izq: Inicio de Celda B11
-                br: { col: 4, row: 11 },  // Esquina Inf. Der: Final de Celda J24 (aprox)
+                br: { col: 4, row: 11 },  // Esquina Inf. Der: Final de Celda E12 (aprox)
                 editAs: 'twoCell'         // CLAVE: "Estírate entre estas dos coordenadas"
             });
 
@@ -111,4 +111,5 @@ app.listen(PORT, () => {
     console.log(`🚀 Servidor listo en puerto ${PORT}`);
 
 });
+
 
