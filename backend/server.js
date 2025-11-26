@@ -6,110 +6,106 @@ const fs = require('fs');
 const cors = require('cors');
 
 const app = express();
-// Configuración de Multer para guardar en memoria RAM
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
 
-// --- RUTA DE MONITOREO ---
-app.get('/', (req, res) => {
-    res.send('✅ Servidor de Reportes OOCC - ONLINE');
-});
+app.get('/', (req, res) => res.send('✅ Servidor OOCC v2 - ONLINE'));
 
-// --- RUTA PRINCIPAL: GENERAR REPORTE ---
 app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
     try {
-        console.log('--- Iniciando generación de Reporte ---');
-
-        // 1. UBICAR LA PLANTILLA
-        const templatePath = path.join(__dirname, 'templates', 'template_oocc.xlsx');
+        console.log('--- Nueva solicitud de reporte ---');
         
-        if (!fs.existsSync(templatePath)) {
-            throw new Error(`CRÍTICO: No se encuentra la plantilla en ${templatePath}`);
-        }
+        // 1. CARGAR PLANTILLA
+        const templatePath = path.join(__dirname, 'templates', 'template_oocc.xlsx');
+        if (!fs.existsSync(templatePath)) throw new Error(`No existe plantilla en ${templatePath}`);
 
-        // 2. CARGAR EXCEL
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.readFile(templatePath);
 
-        // 3. OBTENER DATOS
-        const { 
-            nombreSite,       // E20
-            fechaInspeccion,  // F30
-            nombreInspector,  // D28
-            descripcionFoto   // B24
-        } = req.body;
-
-        console.log(`Procesando: Site=${nombreSite}, Insp=${nombreInspector}`);
-
         // ---------------------------------------------------------
-        // PASO A: LLENAR TEXTOS (Hoja "Insp. Estructura")
+        // MAPEO DE DATOS (INGENIERÍA INTELIGENTE)
+        // Relacionamos: "name del HTML" : "Celda del Excel"
         // ---------------------------------------------------------
+        const cellMapping = {
+            // SECCIÓN I: COOPERADOR
+            'cooperador_nombre':  'C12',
+            'cooperador_cargo':   'E12',
+            'cooperador_empresa': 'L12',
+            'cooperador_dni':     'Q12',
+
+            // SECCIÓN II: SITE / PROYECTO
+            'site_nombre':    'E20', // Nombre Site
+            'site_proyecto':  'G20', // Proyecto
+            'site_direccion': 'E22', // Dirección
+            'site_distrito':  'C24', // Dpto/Prov/Dist
+            'site_tipo':      'G24', // Tipo de sitio
+
+            // SECCIÓN III: INSPECTOR
+            'inspector_nombre':   'C28', // Ojo: en tu captura parece ser C28 (Personal 01) o D28
+            'inspector_cargo':    'E28',
+            'inspector_empresa':  'L28',
+            'fecha_inspeccion':   'F30',
+
+            // SECCIÓN IV: CHECKLIST (EJEMPLO PILOTO 1-3)
+            // Según captura: Col G es "SI/NO"? Vamos a asumir G=Respuesta por ahora
+            'check_1': 'G34', // Fisuras
+            'check_2': 'G35', // Desprendimientos
+            'check_3': 'G36', // Humedad
+        };
+
+        const datosRecibidos = req.body;
         const hojaDatos = workbook.getWorksheet('Insp. Estructura');
-        
+
         if (hojaDatos) {
-            if(nombreSite)      hojaDatos.getCell('E20').value = nombreSite;
-            if(nombreInspector) hojaDatos.getCell('D28').value = nombreInspector;
-            if(fechaInspeccion) hojaDatos.getCell('F30').value = fechaInspeccion;
+            // Recorremos el mapa e inyectamos valores si existen en el body
+            Object.keys(cellMapping).forEach(key => {
+                if (datosRecibidos[key]) {
+                    const celda = cellMapping[key];
+                    hojaDatos.getCell(celda).value = datosRecibidos[key];
+                }
+            });
+            console.log('✅ Datos de texto inyectados en Hoja 1');
         } else {
             console.warn('⚠️ No se encontró la hoja "Insp. Estructura"');
         }
 
-// ---------------------------------------------------------
-        // PASO B: FOTO EN HOJA 4 (MODO AUTO-AJUSTE PERFECTO)
+        // ---------------------------------------------------------
+        // FOTO (MANTENEMOS LA LÓGICA QUE YA FUNCIONA)
         // ---------------------------------------------------------
         const hojaFotos = workbook.getWorksheet('Reporte Fotografico');
-
         if (hojaFotos && req.file) {
-            const imageId = workbook.addImage({
-                buffer: req.file.buffer,
-                extension: 'jpeg',
-            });
-
-            // ESTRATEGIA: 'twoCell'
-            // Esto ancla la imagen a las celdas. Si cambias el ancho de columna en Excel,
-            // la imagen se estirará con ella. Llenará el recuadro perfectamente.
+            const imageId = workbook.addImage({ buffer: req.file.buffer, extension: 'jpeg' });
             
             hojaFotos.addImage(imageId, {
-                tl: { col: 1, row: 10 },  // Esquina Sup. Izq: Inicio de Celda B11
-                br: { col: 4, row: 11 },  // Esquina Inf. Der: Final de Celda E12 (aprox)
-                editAs: 'twoCell'         // CLAVE: "Estírate entre estas dos coordenadas"
+                tl: { col: 1, row: 10 }, // B11
+                br: { col: 4, row: 11 }, // E12
+                editAs: 'twoCell'
             });
 
-            // Descripción de la foto (en B24)
-            if(descripcionFoto) {
-                hojaFotos.getCell('B24').value = descripcionFoto;
+            if(datosRecibidos.descripcionFoto) {
+                hojaFotos.getCell('B24').value = datosRecibidos.descripcionFoto;
             }
+            console.log('✅ Foto inyectada en Hoja 4');
         }
 
         // ---------------------------------------------------------
-        // PASO 4: FINALIZAR Y ENVIAR
+        // DESCARGA
         // ---------------------------------------------------------
-        const nombreArchivo = `Reporte_${nombreSite || 'OOCC'}.xlsx`;
-
+        const nombreArchivo = `Reporte_${datosRecibidos.site_nombre || 'OOCC'}.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=${nombreArchivo}`);
-
-        // Truco para asegurar que Excel recalcule todo al abrir
+        
         workbook.calcProperties.fullCalcOnLoad = true;
-
-        // Generar Buffer y enviar
         const buffer = await workbook.xlsx.writeBuffer();
         res.send(buffer);
-        
-        console.log('--- ¡Reporte generado exitosamente! ---');
 
     } catch (error) {
-        console.error('❌ Error:', error);
-        res.status(500).send('Error generando reporte: ' + error.message);
+        console.error('❌ Error Grave:', error);
+        res.status(500).send('Error en servidor: ' + error.message);
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor listo en puerto ${PORT}`);
-
-});
-
-
+app.listen(PORT, () => console.log(`🚀 Servidor listo en puerto ${PORT}`));
