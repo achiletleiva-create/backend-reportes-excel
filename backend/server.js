@@ -82,17 +82,24 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             }
         }
 
-        // 4. GENERAR Y ENVIAR
+       // ... (resto del código anterior igual) ...
+
+        // 4. GENERAR Y ENVIAR (BLOQUE CORREGIDO ANTI-CORRUPCIÓN)
         const nombreArchivo = `Reporte_${nombreSite || 'OOCC'}.xlsx`;
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=${nombreArchivo}`);
 
-        await workbook.xlsx.write(res);
-        res.end();
-        console.log('--- ¡Reporte Enviado! ---');
+        // TRUCO 1: Forzar recalculo de propiedades al abrir
+        workbook.calcProperties.fullCalcOnLoad = true;
 
-    } catch (error) {
+        // TRUCO 2: Usar writeBuffer en lugar de write(res) para mayor estabilidad
+        const buffer = await workbook.xlsx.writeBuffer();
+        res.send(buffer);
+        
+        console.log('--- ¡Reporte Enviado sin errores! ---');
+
+      } catch (error) {
         console.error('❌ Error:', error);
         res.status(500).send('Error generando reporte: ' + error.message);
     }
