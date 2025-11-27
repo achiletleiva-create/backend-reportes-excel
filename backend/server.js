@@ -1,18 +1,17 @@
 const express = require('express');
 const multer = require('multer');
-const ExcelJS = require('exceljs'); // Dependencia principal para Excel
+const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 
 const app = express();
-// Configuración de Multer para almacenar la imagen en memoria (ideal para Render/servidores sin disco)
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('✅ Servidor OOCC v6 (100% Compatible) - ONLINE'));
+app.get('/', (req, res) => res.send('✅ Servidor OOCC v7 (Personal 01-05 OK) - ONLINE'));
 
 // Endpoint principal para generar el reporte
 app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
@@ -20,7 +19,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
         console.log("📥 Recibiendo solicitud de reporte...");
         
         // 1. CARGA DE PLANTILLA
-        // Asegúrate de que la plantilla 'template_oocc.xlsx' esté en la carpeta 'templates'
+        // NOTA: Asegúrate de que tu archivo 'template_oocc.xlsx' exista en la carpeta 'templates'
         const templatePath = path.join(__dirname, 'templates', 'template_oocc.xlsx');
         if (!fs.existsSync(templatePath)) {
             return res.status(500).send(`Error Crítico: No se encontró la plantilla en ${templatePath}`);
@@ -36,24 +35,34 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             
             // =======================================================
             // --- A. MAPEOS DE TEXTO Y VALORES DE CABECERA Y COMENTARIOS ---
-            // Los valores de la izquierda son los 'name' del input en el HTML.
-            // Los valores de la derecha son las celdas en el Excel.
             // =======================================================
             const textMapping = {
-                // I. DATOS DEL COOPERADOR (Basado en tus tablas previas, si se requieren)
-                // Asegúrate de que los inputs esten en el HTML si usas estos campos
-                // 'razon_social': 'E11', 'ruc': 'T11',
+                // I. DATOS DEL COOPERADOR (NUEVOS CAMPOS AÑADIDOS)
+                'razon_social': 'E11', // NUEVO
+                'ruc': 'T11', // NUEVO
+                
+                // Personal 01
                 'personal_01_nombre': 'D12', 'personal_01_cargo': 'H12', 'personal_01_empresa': 'O12', 'personal_01_dni': 'T12',
                 
+                // Personal 02
+                'personal_01_nombre_2': 'D13', 'personal_01_cargo_2': 'H13', 'personal_01_empresa_2': 'O13', 'personal_01_dni_2': 'T13', // NUEVO
+                
+                // Personal 03
+                'personal_01_nombre_3': 'D14', 'personal_01_cargo_3': 'H14', 'personal_01_empresa_3': 'O14', 'personal_01_dni_3': 'T14', // NUEVO
+                
+                // Personal 04
+                'personal_01_nombre_4': 'D15', 'personal_01_cargo_4': 'H15', 'personal_01_empresa_4': 'O15', 'personal_01_dni_4': 'T15', // NUEVO
+                
+                // Personal 05
+                'personal_01_nombre_5': 'D16', 'personal_01_cargo_5': 'H16', 'personal_01_empresa_5': 'O16', 'personal_01_dni_5': 'T16', // NUEVO
+                
                 // II. DATOS DEL PROYECTO Y SITE
-                'nombre_site': 'E20', /* 'proyecto': 'L20', (Si lo necesitas, añádelo al HTML)*/
-                'prioridad': 'E21', 
+                'nombre_site': 'E20', 'prioridad': 'E21', 
                 'direccion': 'E22', 
-                /* 'comentarios': 'L23', (Si lo necesitas, añádelo al HTML)*/
                 'distrito': 'E24',
                 'tipo_sitio': 'L24',
                 
-                // III. DATOS DEL INSPECTOR (CORREGIDO: Coincide con el NAME del HTML)
+                // III. DATOS DEL INSPECTOR 
                 'inspector_nombre': 'D28', 
                 'inspector_cargo': 'I28', 
                 'inspector_empresa': 'O28', 
@@ -62,42 +71,31 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 'fecha_fin': 'R30',
                 
                 // --- MAPEO DE COMENTARIOS (Columna K) ---
-                // Mapeo directo de nombre del input a la celda del comentario
                 'p_concreto_1_comentario': 'K34', 'p_concreto_2_comentario': 'K35', 'p_concreto_3_comentario': 'K36',
+                // ... (El resto del mapeo de comentarios sigue igual)
                 'p_anclaje_1_comentario': 'K38', 'p_anclaje_2_comentario': 'K39', 'p_anclaje_3_comentario': 'K40',
                 'p_base_1_comentario': 'K42', 'p_base_2_comentario': 'K43', 'p_base_3_comentario': 'K44',
                 'p_conexion_1_comentario': 'K47', 'p_conexion_2_comentario': 'K48', 'p_conexion_3_comentario': 'K49',
                 'p_estructura_1_comentario': 'K50', 'p_estructura_2_comentario': 'K51', 'p_estructura_3_comentario': 'K52',
                 'p_corrosion_1_comentario': 'K54', 
-                // Añadir el rango de preguntas faltantes en el HTML (2-9), si existen en la plantilla Excel real.
-                /* 'p_corrosion_2_comentario': 'K55', ..., 'p_corrosion_9_comentario': 'K64', */
                 'p_corrosion_10_comentario': 'K65', 
-                /* 'p_corrosion_11_comentario': 'K66', ..., 'p_corrosion_16_comentario': 'K69', */
                 'p_corrosion_17_comentario': 'K70', 'p_corrosion_18_comentario': 'K71',
-                
                 'p_alineamiento_1_comentario': 'K73', 'p_alineamiento_2_comentario': 'K74',
-                /* 'p_alineamiento_3_comentario': 'K75', 'p_alineamiento_4_comentario': 'K76', */
-                
                 'p_adicional_1_comentario': 'K79', 
-                /* 'p_adicional_2_comentario': 'K80', 'p_adicional_3_comentario': 'K81', 'p_adicional_4_comentario': 'K82', */
                 'p_adicional_5_comentario': 'K83', 
                 
                 // --- MAPEO DE PARALIZACIÓN (Columna I) ---
-                // Mapeo directo de nombre del input a la celda de Paralización
                 'p_concreto_1_paralizacion': 'I34', 'p_concreto_2_paralizacion': 'I35', 'p_concreto_3_paralizacion': 'I36',
+                // ... (El resto del mapeo de paralización sigue igual)
                 'p_anclaje_1_paralizacion': 'I38', 'p_anclaje_2_paralizacion': 'I39', 'p_anclaje_3_paralizacion': 'I40',
                 'p_base_1_paralizacion': 'I42', 'p_base_2_paralizacion': 'I43', 'p_base_3_paralizacion': 'I44',
                 'p_conexion_1_paralizacion': 'I47', 'p_conexion_2_paralizacion': 'I48', 'p_conexion_3_paralizacion': 'I49',
                 'p_estructura_1_paralizacion': 'I50', 'p_estructura_2_paralizacion': 'I51', 'p_estructura_3_paralizacion': 'I52',
                 'p_corrosion_1_paralizacion': 'I54', 
-                /* 'p_corrosion_2_paralizacion': 'I55', ..., 'p_corrosion_9_paralizacion': 'I64', */
                 'p_corrosion_10_paralizacion': 'I65', 
-                /* 'p_corrosion_11_paralizacion': 'I66', ..., 'p_corrosion_16_paralizacion': 'I69', */
                 'p_corrosion_17_paralizacion': 'I70', 'p_corrosion_18_paralizacion': 'I71',
                 'p_alineamiento_1_paralizacion': 'I73', 'p_alineamiento_2_paralizacion': 'I74',
-                /* 'p_alineamiento_3_paralizacion': 'I75', 'p_alineamiento_4_paralizacion': 'I76', */
                 'p_adicional_1_paralizacion': 'I79', 
-                /* 'p_adicional_2_paralizacion': 'I80', 'p_adicional_3_paralizacion': 'I81', 'p_adicional_4_paralizacion': 'I82', */
                 'p_adicional_5_paralizacion': 'I83',
             };
 
@@ -113,7 +111,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             // --- B. LÓGICA DE CHECKLIST (Las X en la Columna G, H o I) ---
             // =======================================================
             
-            // Diccionario: 'name del input de respuesta': Fila en Excel
+            // ... (Esta sección se mantiene exactamente igual para el checklist)
             const checklistResponses = {
                 'p_concreto_1': 34, 'p_concreto_2': 35, 'p_concreto_3': 36,
                 'p_anclaje_1': 38, 'p_anclaje_2': 39, 'p_anclaje_3': 40,
@@ -125,13 +123,11 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 'p_adicional_1': 79, 'p_adicional_5': 83,
             };
 
-            // Mapeo de la respuesta (SI/NO/NA) a la columna de Excel
-            // Columna G: SI, Columna H: NO, Columna I: NA
             const responseColMap = { 'SI': 'G', 'NO': 'H', 'NA': 'I' };
 
             Object.keys(checklistResponses).forEach(inputName => {
-                const respuesta = body[inputName]; // Valor del select: "SI", "NO", "NA"
-                const row = checklistResponses[inputName]; // Número de fila
+                const respuesta = body[inputName];
+                const row = checklistResponses[inputName];
                 
                 if (respuesta && responseColMap[respuesta]) {
                     const cellId = `${responseColMap[respuesta]}${row}`;
@@ -142,23 +138,21 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
         }
 
         // --- C. PROCESAMIENTO DE FOTO ---
-        const hojaFotos = workbook.getWorksheet('Reporte Fotografico'); // Nombre de la hoja de fotos
+        const hojaFotos = workbook.getWorksheet('Reporte Fotografico');
         if (hojaFotos && req.file) {
             console.log("📸 Procesando imagen...");
             const imageId = workbook.addImage({
                 buffer: req.file.buffer,
-                extension: 'jpeg' // o 'png', dependiendo del formato de la imagen subida
+                extension: 'jpeg'
             });
 
-            // Coordenadas para la imagen (Ajustar según la plantilla)
             hojaFotos.addImage(imageId, {
-                tl: { col: 1, row: 10 }, // Top-Left (Col B, Fila 10)
-                br: { col: 5, row: 24 }, // Bottom-Right (Col F, Fila 24)
+                tl: { col: 1, row: 10 }, 
+                br: { col: 5, row: 24 }, 
                 editAs: 'twoCell'
             });
 
             if(body.descripcionFoto) {
-                // Celda para la descripción de la foto (Ajustar según la plantilla)
                 hojaFotos.getCell('B24').value = String(body.descripcionFoto);
             }
         }
@@ -168,7 +162,6 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=${nombreArchivo}`);
         
-        // Forzar recálculo de fórmulas al abrir (Importante para la Calificación Lograda %)
         workbook.calcProperties.fullCalcOnLoad = true;
 
         const buffer = await workbook.xlsx.writeBuffer();
