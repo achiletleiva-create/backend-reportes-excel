@@ -1,22 +1,45 @@
-// ... (Configuración de Express, Multer, ExcelJS, y CORS - NO MODIFICADA) ...
+const express = require('express');
+const multer = require('multer');
+const ExcelJS = require('exceljs');
+const path = require('path');
+const fs = require('fs');
+const cors = require('cors');
 
+const app = express();
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Configuración Base (NO MODIFICADA)
+app.use(cors());
+app.use(express.json());
+
+app.get('/', (req, res) => res.send('✅ Servidor OOCC v10 (Checklist Completo OK) - ONLINE'));
+
+// Endpoint principal para generar el reporte
 app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
     try {
         console.log("📥 Recibiendo solicitud de reporte...");
         
-        // 1. CARGA DE PLANTILLA (Lógica NO MODIFICADA)
-        // ...
+        // 1. CARGA DE PLANTILLA (NO MODIFICADA)
+        // Asegúrate de tener la carpeta 'templates' y el archivo 'template_oocc.xlsx'
+        const templatePath = path.join(__dirname, 'templates', 'template_oocc.xlsx');
+        if (!fs.existsSync(templatePath)) {
+            return res.status(500).send(`Error Crítico: No se encontró la plantilla en ${templatePath}`);
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(templatePath);
         
         const body = req.body; 
         const hojaDatos = workbook.getWorksheet('Insp. Estructura'); 
+        const hojaFotos = workbook.getWorksheet('Reporte Fotografico'); // Para procesamiento de foto
 
         if (hojaDatos) {
             
             // =======================================================
-            // --- A. MAPEOS DE TEXTO Y VALORES DE CABECERA Y COMENTARIOS ---
+            // --- A. MAPEOS DE TEXTO Y VALORES DE CABECERA, COMENTARIOS Y PARALIZACIÓN ---
             // =======================================================
             const textMapping = {
-                // I. DATOS DEL COOPERADOR (SIN CAMBIOS, MANTENIDO)
+                // I. DATOS DEL COOPERADOR 
                 'razon_social': 'E11', 'ruc': 'T11', 
                 'personal_01_nombre': 'D12', 'personal_01_cargo': 'H12', 'personal_01_empresa': 'O12', 'personal_01_dni': 'T12',
                 'personal_01_nombre_2': 'D13', 'personal_01_cargo_2': 'H13', 'personal_01_empresa_2': 'O13', 'personal_01_dni_2': 'T13',
@@ -24,19 +47,19 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 'personal_01_nombre_4': 'D15', 'personal_01_cargo_4': 'H15', 'personal_01_empresa_4': 'O15', 'personal_01_dni_4': 'T15',
                 'personal_01_nombre_5': 'D16', 'personal_01_cargo_5': 'H16', 'personal_01_empresa_5': 'O16', 'personal_01_dni_5': 'T16', 
                 
-                // II. DATOS DEL PROYECTO Y SITE (SIN CAMBIOS, MANTENIDO)
+                // II. DATOS DEL PROYECTO Y SITE
                 'nombre_site': 'E20', 'proyecto': 'L20', 'solucion': 'T20', 
                 'prioridad': 'E21', 'actividad_campo': 'L21', 'n_mop': 'T21', 
                 'direccion': 'E22', 'actividad_mop': 'L22', 'n_contrato': 'T22',
                 'acceso_contingente': 'E23', 'comentarios_proyecto': 'L23',
                 'distrito': 'E24', 'tipo_sitio': 'L24', 'servicio_inspeccionado': 'T24',
                 
-                // III. DATOS DEL INSPECTOR (CAMPOS AGREGADOS RECIENTEMENTE)
+                // III. DATOS DEL INSPECTOR (Nuevos campos)
                 'inspector_01_nombre': 'D28', 'inspector_01_cargo': 'I28', 'inspector_01_empresa': 'O28', 'inspector_01_dni': 'T28',
                 'inspector_02_nombre': 'D29', 'inspector_02_cargo': 'I29', 'inspector_02_empresa': 'O29', 'inspector_02_dni': 'T29',
                 'fecha_inicio': 'F30', 'fecha_fin': 'R30',
                 
-                // --- MAPEO DE COMENTARIOS (Columna K) - TODOS AGREGADOS ---
+                // --- MAPEO DE COMENTARIOS (Columna K) ---
                 // CIMENTACIÓN - CONDICIONES DEL CONCRETO (K34-K36)
                 'p_concreto_1_comentario': 'K34', 'p_concreto_2_comentario': 'K35', 'p_concreto_3_comentario': 'K36',
                 // CIMENTACIÓN - ESTADO DE ANCLAJES Y PERNOS DE CIMENTACIÓN (K38-K40)
@@ -57,7 +80,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 // ADICIONALES (K79-K84)
                 'p_adicional_1_comentario': 'K79', 'p_adicional_2_comentario': 'K80', 'p_adicional_3_comentario': 'K81', 'p_adicional_4_comentario': 'K82', 'p_adicional_5_comentario': 'K83', 'p_adicional_6_comentario': 'K84',
 
-                // --- MAPEO DE PARALIZACIÓN (Columna I) - TODOS AGREGADOS ---
+                // --- MAPEO DE PARALIZACIÓN (Columna I) ---
                 // CIMENTACIÓN - CONDICIONES DEL CONCRETO
                 'p_concreto_1_paralizacion': 'I34', 'p_concreto_2_paralizacion': 'I35', 'p_concreto_3_paralizacion': 'I36',
                 // CIMENTACIÓN - ESTADO DE ANCLAJES Y PERNOS DE CIMENTACIÓN
@@ -76,19 +99,22 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 // ESTRUCTURA METALICA - ALINEAMIENTO Y ESTABILIDAD
                 'p_alineamiento_1_paralizacion': 'I73', 'p_alineamiento_2_paralizacion': 'I74', 'p_alineamiento_3_paralizacion': 'I75', 'p_alineamiento_4_paralizacion': 'I76', 'p_alineamiento_5_paralizacion': 'I77',
                 // ADICIONALES
-                'p_adicional_1_paralizacion': 'I79', 'p_adicional_2_paralizacion': 'I80', 'p_adicional_3_paralizacion': 'I81', 'p_adicional_4_paralizacion': 'I82', 'p_adicional_5_paralizacion': 'I83', 'p_adicional_6_paralizacion': 'I84',
+                'p_adicional_1_paralizacion': 'I79', 'p_adicional_2_paralizacion': 'I80', 'p_adicional_3_paralizacion': 'I81', 'p_adicional_4_paralizacion': 'I82', 'p_adicional_5_paralizacion': 'I83', 'p_adicional_6_paralizacion': 'I84'
             };
 
-            // Escribir los valores de texto y selects (Lógica NO MODIFICADA)
+            // Escribir los valores de texto y selects (paralización/comentarios) en el Excel
             Object.keys(textMapping).forEach(key => {
-                // ...
+                const value = body[key];
+                if (value) {
+                    hojaDatos.getCell(textMapping[key]).value = String(value).toUpperCase();
+                }
             });
 
             // =======================================================
             // --- B. LÓGICA DE CHECKLIST (Las X en la Columna G o H) ---
             // =======================================================
             
-            // Mapeo de campos del formulario a filas de Excel (TODOS AGREGADOS)
+            // Mapeo de campos del formulario a filas de Excel
             const checklistResponses = {
                 // CIMENTACIÓN - CONDICIONES DEL CONCRETO
                 'p_concreto_1': 34, 'p_concreto_2': 35, 'p_concreto_3': 36,
@@ -106,22 +132,61 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 // ESTRUCTURA METALICA - ALINEAMIENTO Y ESTABILIDAD
                 'p_alineamiento_1': 73, 'p_alineamiento_2': 74, 'p_alineamiento_3': 75, 'p_alineamiento_4': 76, 'p_alineamiento_5': 77, 
                 // ADICIONALES
-                'p_adicional_1': 79, 'p_adicional_2': 80, 'p_adicional_3': 81, 'p_adicional_4': 82, 'p_adicional_5': 83, 'p_adicional_6': 84, 
+                'p_adicional_1': 79, 'p_adicional_2': 80, 'p_adicional_3': 81, 'p_adicional_4': 82, 'p_adicional_5': 83, 'p_adicional_6': 84
             };
 
-            // ... (La lógica de marcar la X en G, H o I - NO MODIFICADA) ...
-            
+            // Columnas donde se marca la 'X' según la respuesta
+            const responseColMap = { 'SI': 'G', 'NO': 'H', 'NA': 'I' };
+
+            Object.keys(checklistResponses).forEach(inputName => {
+                const respuesta = body[inputName];
+                const row = checklistResponses[inputName];
+                
+                if (respuesta && responseColMap[respuesta]) {
+                    // Marcar la 'X' en la columna correcta (G, H o I)
+                    const cellId = `${responseColMap[respuesta]}${row}`;
+                    hojaDatos.getCell(cellId).value = 'X';
+                    hojaDatos.getCell(cellId).alignment = { vertical: 'middle', horizontal: 'center' };
+                }
+            });
         }
 
-        // --- C. PROCESAMIENTO DE FOTO (Lógica NO MODIFICADA) ---
-        // ...
+        // --- C. PROCESAMIENTO DE FOTO (NO MODIFICADA) ---
+        if (hojaFotos && req.file) {
+            console.log("📸 Procesando imagen...");
+            const imageId = workbook.addImage({
+                buffer: req.file.buffer,
+                extension: 'jpeg'
+            });
 
-        // --- D. RESPUESTA Y DESCARGA (Lógica NO MODIFICADA) ---
-        // ...
+            hojaFotos.addImage(imageId, {
+                tl: { col: 1, row: 10 }, 
+                br: { col: 5, row: 24 }, 
+                editAs: 'twoCell'
+            });
+
+            if(body.descripcionFoto) {
+                hojaFotos.getCell('B24').value = String(body.descripcionFoto);
+            }
+        }
+
+        // --- D. RESPUESTA Y DESCARGA (NO MODIFICADA) ---
+        const nombreArchivo = `Reporte_${body.nombre_site || 'OOCC'}.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=${nombreArchivo}`);
+        
+        // Habilitar recálculo de fórmulas en el archivo
+        workbook.calcProperties.fullCalcOnLoad = true;
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        res.send(buffer);
+        console.log("✅ Reporte generado y enviado con éxito.");
 
     } catch (error) {
-        // ...
+        console.error("❌ Error generando reporte:", error);
+        res.status(500).send('Error interno en el servidor: ' + error.message);
     }
 });
 
-// ... (Puerto de escucha - NO MODIFICADO) ...
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Servidor listo en puerto ${PORT}`));
