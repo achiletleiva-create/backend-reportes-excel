@@ -8,7 +8,7 @@ const cors = require('cors');
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Configuración Base (NO MODIFICADA)
+// Configuración Base
 app.use(cors());
 app.use(express.json());
 
@@ -19,7 +19,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
     try {
         console.log("📥 Recibiendo solicitud de reporte...");
         
-        // 1. CARGA DE PLANTILLA (NO MODIFICADA)
+        // 1. CARGA DE PLANTILLA
         // Asegúrate de tener la carpeta 'templates' y el archivo 'template_oocc.xlsx'
         const templatePath = path.join(__dirname, 'templates', 'template_oocc.xlsx');
         if (!fs.existsSync(templatePath)) {
@@ -31,7 +31,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
         
         const body = req.body; 
         const hojaDatos = workbook.getWorksheet('Insp. Estructura'); 
-        const hojaFotos = workbook.getWorksheet('Reporte Fotografico'); // Para procesamiento de foto
+        const hojaFotos = workbook.getWorksheet('Reporte Fotografico'); 
 
         if (hojaDatos) {
             
@@ -54,9 +54,9 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 'acceso_contingente': 'E23', 'comentarios_proyecto': 'L23',
                 'distrito': 'E24', 'tipo_sitio': 'L24', 'servicio_inspeccionado': 'T24',
                 
-                // III. DATOS DEL INSPECTOR (Nuevos campos)
-                'inspector_01_nombre': 'D28', 'inspector_01_cargo': 'I28', 'inspector_01_empresa': 'O28', 'inspector_01_dni': 'T28',
-                'inspector_02_nombre': 'D29', 'inspector_02_cargo': 'I29', 'inspector_02_empresa': 'O29', 'inspector_02_dni': 'T29',
+                // III. DATOS DEL INSPECTOR (CORREGIDO: Cargo en H28 y H29)
+                'inspector_01_nombre': 'D28', 'inspector_01_cargo': 'H28', 'inspector_01_empresa': 'O28', 'inspector_01_dni': 'T28',
+                'inspector_02_nombre': 'D29', 'inspector_02_cargo': 'H29', 'inspector_02_empresa': 'O29', 'inspector_02_dni': 'T29',
                 'fecha_inicio': 'F30', 'fecha_fin': 'R30',
                 
                 // --- MAPEO DE COMENTARIOS (Columna K) ---
@@ -151,7 +151,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             });
         }
 
-        // --- C. PROCESAMIENTO DE FOTO (NO MODIFICADA) ---
+        // --- C. PROCESAMIENTO DE FOTO ---
         if (hojaFotos && req.file) {
             console.log("📸 Procesando imagen...");
             const imageId = workbook.addImage({
@@ -170,7 +170,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             }
         }
 
-        // --- D. RESPUESTA Y DESCARGA (NO MODIFICADA) ---
+        // --- D. RESPUESTA Y DESCARGA ---
         const nombreArchivo = `Reporte_${body.nombre_site || 'OOCC'}.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=${nombreArchivo}`);
