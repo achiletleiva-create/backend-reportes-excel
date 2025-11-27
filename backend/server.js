@@ -12,7 +12,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('✅ Servidor OOCC v15 (Cambios finales en G, I y Sección V aplicados) - ONLINE'));
+app.get('/', (req, res) => res.send('✅ Servidor OOCC v16 (Solución de Default NA en G aplicada) - ONLINE'));
 
 // Endpoint principal para generar el reporte
 app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
@@ -57,7 +57,6 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             
             // =======================================================
             // --- A. MAPEOS DE TEXTO Y VALORES DE CABECERA Y COMENTARIOS ---
-            // (Esta sección se mantiene sin cambios, solo se incluye para contexto completo)
             // =======================================================
             const textMapping = {
                 // I. DATOS DEL COOPERADOR 
@@ -92,7 +91,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 'p_alineamiento_1_comentario': 'K73', 'p_alineamiento_2_comentario': 'K74', 'p_alineamiento_3_comentario': 'K75', 'p_alineamiento_4_comentario': 'K76', 'p_alineamiento_5_comentario': 'K77',
                 'p_adicional_1_comentario': 'K79', 'p_adicional_2_comentario': 'K80', 'p_adicional_3_comentario': 'K81', 'p_adicional_4_comentario': 'K82', 'p_adicional_5_comentario': 'K83', 'p_adicional_6_comentario': 'K84',
 
-                // --- MAPEO DE PARALIZACIÓN (Columna I - Texto SI/NO/NA) ---
+                // --- MAPEO DE PARALIZACIÓN (Columna I) ---
                 'p_concreto_1_paralizacion': 'I34', 'p_concreto_2_paralizacion': 'I35', 'p_concreto_3_paralizacion': 'I36',
                 'p_anclaje_1_paralizacion': 'I38', 'p_anclaje_2_paralizacion': 'I39', 'p_anclaje_3_paralizacion': 'I40',
                 'p_base_1_paralizacion': 'I42', 'p_base_2_paralizacion': 'I43', 'p_base_3_paralizacion': 'I44', 'p_base_4_paralizacion': 'I45', 
@@ -120,26 +119,45 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             });
 
             // =======================================================
-            // --- B. LÓGICA DE CHECKLIST PRINCIPAL (SI/NO/NA en Columna G - Marca con Texto) ---
+            // --- B. LÓGICA DE CHECKLIST PRINCIPAL (SI/NO/NA en Columna G) ---
             // =======================================================
             
             let totalSI = 0;
             let totalNO = 0;
             let totalNA = 0;
             const COLUMNA_RESPUESTA = 'G'; // Columna única para SI/NO/NA
-            const COLUMNAS_A_LIMPIAR = ['H', 'I']; // Limpiamos H e I (porque I es ahora Paralización y se maneja en D)
+            const COLUMNAS_A_LIMPIAR = ['H', 'I']; // Limpiamos H e I (para que I pueda usarse en la Sección D)
 
             Object.keys(checklistResponses).forEach(inputName => {
-                // *** DEFAULT 'NO' PARA COLUMNA G ***
-                // Si la respuesta no viene en el body o es vacía, se ASUME 'NO'
-                let respuesta = (body[inputName] && String(body[inputName]).toUpperCase()) || 'NO';
                 
-                // Aseguramos que solo aceptamos SI, NO o NA (si es otro valor, se asume 'NO')
-                if (!['SI', 'NO', 'NA'].includes(respuesta)) {
-                    respuesta = 'NO';
-                }
+                let respuestaRaw = body[inputName] ? String(body[inputName]).toUpperCase() : '';
+                let respuesta;
 
                 const row = checklistResponses[inputName];
+                const cellG = hojaDatos.getCell(`${COLUMNA_RESPUESTA}${row}`); // G34, G35, etc.
+
+                // 1. Limpiamos H e I (columnas adyacentes)
+                COLUMNAS_A_LIMPIAR.forEach(col => {
+                     hojaDatos.getCell(`${col}${row}`).value = '';
+                });
+
+                // 2. Lógica para determinar el valor de la celda G:
+                if (!body[inputName]) {
+                    // *** CORRECCIÓN: Si NO viene la respuesta del frontend, forzamos el default 'NO' ***
+                    // Primero limpiamos G para asegurar que la preselección 'NA' de la plantilla se borre.
+                    cellG.value = ''; 
+                    respuesta = 'NO'; // Aplicamos nuestro default estricto
+                } else {
+                    // Si SÍ viene la respuesta, la procesamos
+                    if (respuestaRaw === 'SI') {
+                        respuesta = 'SI';
+                    } else if (respuestaRaw === 'NA') {
+                        respuesta = 'NA';
+                    } else {
+                        // Si viene cualquier cosa que no sea SI/NA (incluyendo 'NO' explícito), es NO
+                        respuesta = 'NO';
+                    }
+                }
                 
                 // Contar las respuestas para el cálculo
                 if (respuesta === 'SI') {
@@ -150,15 +168,9 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                     totalNA++;
                 }
                 
-                // Escribir el TEXTO de la respuesta en la Columna G
-                const cellId = `${COLUMNA_RESPUESTA}${row}`;
-                hojaDatos.getCell(cellId).value = respuesta;
-                hojaDatos.getCell(cellId).alignment = { vertical: 'middle', horizontal: 'center' };
-                
-                // Limpiar columnas adyacentes H e I
-                COLUMNAS_A_LIMPIAR.forEach(col => {
-                     hojaDatos.getCell(`${col}${row}`).value = '';
-                });
+                // Escribir el TEXTO de la respuesta final en la Columna G
+                cellG.value = respuesta;
+                cellG.alignment = { vertical: 'middle', horizontal: 'center' };
             });
 
             // =======================================================
@@ -185,14 +197,13 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             hojaDatos.getCell('M89').value = calificacionLogradaDecimal; // Valor decimal para formato de porcentaje
 
             // =======================================================
-            // --- D. LÓGICA DE STATUS SECUNDARIO (Paralización en Columna I - Texto SI/NO/NA) ---
+            // --- D. LÓGICA DE STATUS SECUNDARIO (Paralización en Columna I) ---
             // =======================================================
             
-            // Columna I sigue siendo la columna de Paralización, NO afectando el conteo principal.
+            // Columna I recibe el estatus de paralización (SI/NO/NA)
             const paralizacionFields = Object.keys(textMapping).filter(key => key.endsWith('_paralizacion'));
 
             paralizacionFields.forEach(key => {
-                // *** DEFAULT 'NO' PARA COLUMNA I (PARALIZACIÓN) ***
                 // Obtener el valor de la paralización, aplicar default 'NO' si está vacío/no existe
                 let statusValue = (body[key] && String(body[key]).toUpperCase()) || 'NO';
                 
@@ -203,7 +214,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
 
         } // Fin del if (hojaDatos)
 
-        // --- E. PROCESAMIENTO DE FOTO Y RESPUESTA (Se mantiene igual) ---
+        // --- E. PROCESAMIENTO DE FOTO Y RESPUESTA ---
         if (hojaFotos && req.file) {
             console.log("📸 Procesando imagen...");
             const imageId = workbook.addImage({
@@ -222,7 +233,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             }
         }
 
-        // --- F. RESPUESTA Y DESCARGA (Se mantiene igual) ---
+        // --- F. RESPUESTA Y DESCARGA ---
         const nombreArchivo = `Reporte_${body.nombre_site || 'OOCC'}.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=${nombreArchivo}`);
