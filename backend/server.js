@@ -12,7 +12,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('✅ Servidor OOCC v10 (Checklist Completo OK) - ONLINE'));
+app.get('/', (req, res) => res.send('✅ Servidor OOCC v15 (Cambios finales en G, I y Sección V aplicados) - ONLINE'));
 
 // Endpoint principal para generar el reporte
 app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
@@ -32,7 +32,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
         const hojaDatos = workbook.getWorksheet('Insp. Estructura'); 
         const hojaFotos = workbook.getWorksheet('Reporte Fotografico'); 
 
-        // Definición de respuestas del checklist para cálculos
+        // Definición de respuestas del checklist (45 preguntas)
         const checklistResponses = {
             // CIMENTACIÓN - CONDICIONES DEL CONCRETO
             'p_concreto_1': 34, 'p_concreto_2': 35, 'p_concreto_3': 36,
@@ -53,11 +53,11 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             'p_adicional_1': 79, 'p_adicional_2': 80, 'p_adicional_3': 81, 'p_adicional_4': 82, 'p_adicional_5': 83, 'p_adicional_6': 84
         };
 
-
         if (hojaDatos) {
             
             // =======================================================
-            // --- A. MAPEOS DE TEXTO Y VALORES DE CABECERA, COMENTARIOS Y PARALIZACIÓN ---
+            // --- A. MAPEOS DE TEXTO Y VALORES DE CABECERA Y COMENTARIOS ---
+            // (Esta sección se mantiene sin cambios, solo se incluye para contexto completo)
             // =======================================================
             const textMapping = {
                 // I. DATOS DEL COOPERADOR 
@@ -75,7 +75,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 'acceso_contingente': 'E23', 'comentarios_proyecto': 'L23',
                 'distrito': 'E24', 'tipo_sitio': 'L24', 'servicio_inspeccionado': 'T24',
                 
-                // III. DATOS DEL INSPECTOR (Corregido: Cargo en H28 y H29)
+                // III. DATOS DEL INSPECTOR
                 'inspector_01_nombre': 'D28', 'inspector_01_cargo': 'H28', 'inspector_01_empresa': 'O28', 'inspector_01_dni': 'T28',
                 'inspector_02_nombre': 'D29', 'inspector_02_cargo': 'H29', 'inspector_02_empresa': 'O29', 'inspector_02_dni': 'T29',
                 'fecha_inicio': 'F30', 'fecha_fin': 'R30',
@@ -85,101 +85,125 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
                 'p_anclaje_1_comentario': 'K38', 'p_anclaje_2_comentario': 'K39', 'p_anclaje_3_comentario': 'K40',
                 'p_base_1_comentario': 'K42', 'p_base_2_comentario': 'K43', 'p_base_3_comentario': 'K44', 'p_base_4_comentario': 'K45', 
                 'p_conexion_1_comentario': 'K47', 'p_conexion_2_comentario': 'K48', 'p_conexion_3_comentario': 'K49',
-                'p_conexion_4_comentario': 'K50', 
-                'p_conexion_5_comentario': 'K51', 
-                'p_conexion_6_comentario': 'K52', 
+                'p_conexion_4_comentario': 'K50', 'p_conexion_5_comentario': 'K51', 'p_conexion_6_comentario': 'K52', 
                 'p_corrosion_1_comentario': 'K54', 'p_corrosion_2_comentario': 'K55', 'p_corrosion_3_comentario': 'K56', 'p_corrosion_4_comentario': 'K57', 'p_corrosion_5_comentario': 'K58', 'p_corrosion_6_comentario': 'K59', 'p_corrosion_7_comentario': 'K60', 'p_corrosion_8_comentario': 'K61',
                 'p_corrosion_9_comentario': 'K62', 'p_corrosion_10_comentario': 'K63', 'p_corrosion_11_comentario': 'K64', 'p_corrosion_12_comentario': 'K65', 'p_corrosion_13_comentario': 'K66', 'p_corrosion_14_comentario': 'K67', 'p_corrosion_15_comentario': 'K68', 'p_corrosion_16_comentario': 'K69',
                 'p_corrosion_17_comentario': 'K70', 'p_corrosion_18_comentario': 'K71',
                 'p_alineamiento_1_comentario': 'K73', 'p_alineamiento_2_comentario': 'K74', 'p_alineamiento_3_comentario': 'K75', 'p_alineamiento_4_comentario': 'K76', 'p_alineamiento_5_comentario': 'K77',
                 'p_adicional_1_comentario': 'K79', 'p_adicional_2_comentario': 'K80', 'p_adicional_3_comentario': 'K81', 'p_adicional_4_comentario': 'K82', 'p_adicional_5_comentario': 'K83', 'p_adicional_6_comentario': 'K84',
 
-                // --- MAPEO DE PARALIZACIÓN (Columna I) ---
+                // --- MAPEO DE PARALIZACIÓN (Columna I - Texto SI/NO/NA) ---
                 'p_concreto_1_paralizacion': 'I34', 'p_concreto_2_paralizacion': 'I35', 'p_concreto_3_paralizacion': 'I36',
                 'p_anclaje_1_paralizacion': 'I38', 'p_anclaje_2_paralizacion': 'I39', 'p_anclaje_3_paralizacion': 'I40',
                 'p_base_1_paralizacion': 'I42', 'p_base_2_paralizacion': 'I43', 'p_base_3_paralizacion': 'I44', 'p_base_4_paralizacion': 'I45', 
                 'p_conexion_1_paralizacion': 'I47', 'p_conexion_2_paralizacion': 'I48', 'p_conexion_3_paralizacion': 'I49',
-                'p_conexion_4_paralizacion': 'I50', 
-                'p_conexion_5_paralizacion': 'I51', 
-                'p_conexion_6_paralizacion': 'I52', 
+                'p_conexion_4_paralizacion': 'I50', 'p_conexion_5_paralizacion': 'I51', 'p_conexion_6_paralizacion': 'I52', 
                 'p_corrosion_1_paralizacion': 'I54', 'p_corrosion_2_paralizacion': 'I55', 'p_corrosion_3_paralizacion': 'I56', 'p_corrosion_4_paralizacion': 'I57', 'p_corrosion_5_paralizacion': 'I58', 'p_corrosion_6_paralizacion': 'I59', 'p_corrosion_7_paralizacion': 'I60', 'p_corrosion_8_paralizacion': 'I61',
                 'p_corrosion_9_paralizacion': 'I62', 'p_corrosion_10_paralizacion': 'I63', 'p_corrosion_11_paralizacion': 'I64', 'p_corrosion_12_paralizacion': 'I65', 'p_corrosion_13_paralizacion': 'I66', 'p_corrosion_14_paralizacion': 'I67', 'p_corrosion_15_paralizacion': 'I68', 'p_corrosion_16_paralizacion': 'I69',
                 'p_corrosion_17_paralizacion': 'I70', 'p_corrosion_18_paralizacion': 'I71',
                 'p_alineamiento_1_paralizacion': 'I73', 'p_alineamiento_2_paralizacion': 'I74', 'p_alineamiento_3_paralizacion': 'I75', 'p_alineamiento_4_paralizacion': 'I76', 'p_alineamiento_5_paralizacion': 'I77',
                 'p_adicional_1_paralizacion': 'I79', 'p_adicional_2_paralizacion': 'I80', 'p_adicional_3_paralizacion': 'I81', 'p_adicional_4_paralizacion': 'I82', 'p_adicional_5_paralizacion': 'I83', 'p_adicional_6_paralizacion': 'I84',
                 
-                // V. RESULTADOS CALCULADOS (M87-M89) - Nuevos campos
-                'calculo_si': 'M87', 
+                // V. RESULTADOS CALCULADOS (M87-M89)
+                'calculo_si_no': 'M87', 
                 'calculo_aplicables': 'M88',
                 'calculo_calificacion': 'M89'
             };
 
-            // Escribir los valores de texto y selects (paralización/comentarios) en el Excel
+            // Escribir los valores de texto y selects (excluyendo Paralización, que se maneja aparte)
             Object.keys(textMapping).forEach(key => {
                 const value = body[key];
-                // Excluir los campos de cálculo que se escribirán más adelante
-                if (value && !key.startsWith('calculo_')) {
+                // Excluir los campos de cálculo (M87-M89) y los campos de paralización (manejados en la Sección D)
+                if (value && !key.startsWith('calculo_') && !key.endsWith('_paralizacion')) {
                     hojaDatos.getCell(textMapping[key]).value = String(value).toUpperCase();
                 }
             });
 
             // =======================================================
-            // --- B. LÓGICA DE CHECKLIST (Las X en la Columna G o H) ---
+            // --- B. LÓGICA DE CHECKLIST PRINCIPAL (SI/NO/NA en Columna G - Marca con Texto) ---
             // =======================================================
             
-            // Columnas donde se marca la 'X' según la respuesta
-            const responseColMap = { 'SI': 'G', 'NO': 'H', 'NA': 'I' };
+            let totalSI = 0;
+            let totalNO = 0;
+            let totalNA = 0;
+            const COLUMNA_RESPUESTA = 'G'; // Columna única para SI/NO/NA
+            const COLUMNAS_A_LIMPIAR = ['H', 'I']; // Limpiamos H e I (porque I es ahora Paralización y se maneja en D)
 
             Object.keys(checklistResponses).forEach(inputName => {
-                const respuesta = body[inputName];
+                // *** DEFAULT 'NO' PARA COLUMNA G ***
+                // Si la respuesta no viene en el body o es vacía, se ASUME 'NO'
+                let respuesta = (body[inputName] && String(body[inputName]).toUpperCase()) || 'NO';
+                
+                // Aseguramos que solo aceptamos SI, NO o NA (si es otro valor, se asume 'NO')
+                if (!['SI', 'NO', 'NA'].includes(respuesta)) {
+                    respuesta = 'NO';
+                }
+
                 const row = checklistResponses[inputName];
                 
-                if (respuesta && responseColMap[respuesta]) {
-                    // Marcar la 'X' en la columna correcta (G, H o I)
-                    const cellId = `${responseColMap[respuesta]}${row}`;
-                    hojaDatos.getCell(cellId).value = 'X';
-                    hojaDatos.getCell(cellId).alignment = { vertical: 'middle', horizontal: 'center' };
+                // Contar las respuestas para el cálculo
+                if (respuesta === 'SI') {
+                    totalSI++;
+                } else if (respuesta === 'NO') {
+                    totalNO++;
+                } else if (respuesta === 'NA') {
+                    totalNA++;
                 }
+                
+                // Escribir el TEXTO de la respuesta en la Columna G
+                const cellId = `${COLUMNA_RESPUESTA}${row}`;
+                hojaDatos.getCell(cellId).value = respuesta;
+                hojaDatos.getCell(cellId).alignment = { vertical: 'middle', horizontal: 'center' };
+                
+                // Limpiar columnas adyacentes H e I
+                COLUMNAS_A_LIMPIAR.forEach(col => {
+                     hojaDatos.getCell(`${col}${row}`).value = '';
+                });
             });
 
             // =======================================================
             // --- C. CÁLCULOS DE RESULTADOS DE CHECKLIST (SECCIÓN V) ---
             // =======================================================
             
-            let totalSI = 0;
-            let totalNO = 0;
+            const TOTAL_PREGUNTAS_BASE = 45;
             
-            // Recorre todas las respuestas para contar SI y NO
-            Object.keys(checklistResponses).forEach(inputName => {
-                const respuesta = body[inputName];
-                if (respuesta === 'SI') {
-                    totalSI++;
-                } else if (respuesta === 'NO') {
-                    totalNO++;
-                }
-            });
+            // M87: Cantidad de SI/NO (Formato especial: 5 (SI) / 39 (NO))
+            const valorM87 = `${totalSI} (SI) / ${totalNO} (NO)`;
+            hojaDatos.getCell('M87').value = valorM87;
+            
+            // M88: Cantidad de Preguntas Aplicables (Total Base - NA)
+            const preguntasAplicables = TOTAL_PREGUNTAS_BASE - totalNA;
+            hojaDatos.getCell('M88').value = preguntasAplicables; 
 
-            const preguntasAplicables = totalSI + totalNO;
+            // M89: Calificación Lograda % (Cantidad de SI / 45)
             let calificacionLogradaDecimal = 0; 
             
-            if (preguntasAplicables > 0) {
-                // ExcelJS usa un número decimal (ej: 0.85) para representar porcentajes (ej: 85%)
-                calificacionLogradaDecimal = (totalSI / preguntasAplicables); 
+            if (TOTAL_PREGUNTAS_BASE > 0) {
+                calificacionLogradaDecimal = (totalSI / TOTAL_PREGUNTAS_BASE); 
             }
 
-            // Escribir los resultados calculados en M87, M88 y M89
-            // M87: Cantidad de SI/NO (asumo que se refiere a la cantidad de SI, el numerador)
-            hojaDatos.getCell('M87').value = totalSI; 
+            hojaDatos.getCell('M89').value = calificacionLogradaDecimal; // Valor decimal para formato de porcentaje
+
+            // =======================================================
+            // --- D. LÓGICA DE STATUS SECUNDARIO (Paralización en Columna I - Texto SI/NO/NA) ---
+            // =======================================================
             
-            // M88: Cantidad de Preguntas Aplicables
-            hojaDatos.getCell('M88').value = preguntasAplicables; 
-            
-            // M89: Calificación Lograda %
-            hojaDatos.getCell('M89').value = calificacionLogradaDecimal; 
+            // Columna I sigue siendo la columna de Paralización, NO afectando el conteo principal.
+            const paralizacionFields = Object.keys(textMapping).filter(key => key.endsWith('_paralizacion'));
+
+            paralizacionFields.forEach(key => {
+                // *** DEFAULT 'NO' PARA COLUMNA I (PARALIZACIÓN) ***
+                // Obtener el valor de la paralización, aplicar default 'NO' si está vacío/no existe
+                let statusValue = (body[key] && String(body[key]).toUpperCase()) || 'NO';
+                
+                // Escribir el valor (SI, NO, o NA) en la celda de la columna I (Paralización)
+                const cellId = textMapping[key];
+                hojaDatos.getCell(cellId).value = statusValue;
+            });
 
         } // Fin del if (hojaDatos)
 
-        // --- D. PROCESAMIENTO DE FOTO ---
+        // --- E. PROCESAMIENTO DE FOTO Y RESPUESTA (Se mantiene igual) ---
         if (hojaFotos && req.file) {
             console.log("📸 Procesando imagen...");
             const imageId = workbook.addImage({
@@ -198,7 +222,7 @@ app.post('/generar-reporte', upload.single('foto'), async (req, res) => {
             }
         }
 
-        // --- E. RESPUESTA Y DESCARGA ---
+        // --- F. RESPUESTA Y DESCARGA (Se mantiene igual) ---
         const nombreArchivo = `Reporte_${body.nombre_site || 'OOCC'}.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=${nombreArchivo}`);
